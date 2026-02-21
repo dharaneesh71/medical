@@ -69,7 +69,7 @@ class _AddPatientPageState extends State<AddPatientPage> {
             ),
             TextField(
               controller: noteController,
-              decoration: const InputDecoration(labelText: "Short Note"),
+              decoration: const InputDecoration(labelText: "Patient’s Note"),
             ),
             const SizedBox(height: 20),
             ElevatedButton(onPressed: addPatient, child: const Text("Add")),

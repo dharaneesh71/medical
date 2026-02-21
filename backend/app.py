@@ -175,6 +175,36 @@ def delete_patient(patient_id):
     conn.commit()
     conn.close()
     return jsonify({"message": "Patient deleted"})
+@app.put("/patients/<int:patient_id>")
+@require_roles(["doctor", "caregiver"])
+def update_patient(patient_id):
+    data = request.get_json() or {}
+
+    # (اختیاری) حداقل‌چک
+    if not data.get("first_name") or not data.get("last_name"):
+        return jsonify({"error": "first_name and last_name are required"}), 400
+
+    conn = get_connection()
+    conn.execute("""
+        UPDATE patients
+        SET first_name=?,
+            last_name=?,
+            date_of_birth=?,
+            sex=?,
+            note=?
+        WHERE id=? AND is_active=1
+    """, (
+        data["first_name"],
+        data["last_name"],
+        data.get("date_of_birth"),
+        data.get("sex"),
+        data.get("note"),
+        patient_id
+    ))
+    conn.commit()
+    conn.close()
+
+    return jsonify({"message": "Patient updated"}), 200
 
 
 # ================= MEDICATION =================
@@ -237,7 +267,7 @@ def delete_medication(medication_id):
 
 
 @app.put("/medications/<int:medication_id>")
-@require_roles(["doctor"])
+@require_roles(["doctor", "caregiver"])
 def update_medication(medication_id):
     data = request.get_json()
 
