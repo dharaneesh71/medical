@@ -13,28 +13,31 @@ class AddPatientPage extends StatefulWidget {
 }
 
 class _AddPatientPageState extends State<AddPatientPage> {
-  final TextEditingController _controller = TextEditingController();
+  final TextEditingController firstNameController = TextEditingController();
+  final TextEditingController lastNameController = TextEditingController();
+  final TextEditingController dobController = TextEditingController();
+  final TextEditingController sexController = TextEditingController();
+  final TextEditingController noteController = TextEditingController();
 
   Future<void> addPatient() async {
     final response = await http.post(
-      Uri.parse("http://localhost:5000/patients"),
-      headers: {
-        "Content-Type": "application/json",
-        "X-Role": widget.user.role, // ✅ دیگه هاردکد نیست
-      },
-      body: jsonEncode({"name": _controller.text}),
+      Uri.parse("http://127.0.0.1:5000/patients"),
+      headers: {"Content-Type": "application/json", "X-Role": widget.user.role},
+      body: jsonEncode({
+        "first_name": firstNameController.text,
+        "last_name": lastNameController.text,
+        "date_of_birth": dobController.text,
+        "sex": sexController.text,
+        "note": noteController.text,
+      }),
     );
 
     if (response.statusCode == 201) {
-      Navigator.pop(context, true); // ✅ باعث refresh صفحه قبلی میشه
-    } else if (response.statusCode == 403) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Access restricted for your role.")),
-      );
+      Navigator.pop(context, true);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Failed to add patient")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error: ${response.statusCode}")));
     }
   }
 
@@ -47,14 +50,29 @@ class _AddPatientPageState extends State<AddPatientPage> {
         child: Column(
           children: [
             TextField(
-              controller: _controller,
-              decoration: const InputDecoration(labelText: "Patient Name"),
+              controller: firstNameController,
+              decoration: const InputDecoration(labelText: "First Name"),
+            ),
+            TextField(
+              controller: lastNameController,
+              decoration: const InputDecoration(labelText: "Last Name"),
+            ),
+            TextField(
+              controller: dobController,
+              decoration: const InputDecoration(
+                labelText: "Date of Birth (YYYY-MM-DD)",
+              ),
+            ),
+            TextField(
+              controller: sexController,
+              decoration: const InputDecoration(labelText: "Sex"),
+            ),
+            TextField(
+              controller: noteController,
+              decoration: const InputDecoration(labelText: "Short Note"),
             ),
             const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: addPatient,
-              child: const Text("Add"),
-            ),
+            ElevatedButton(onPressed: addPatient, child: const Text("Add")),
           ],
         ),
       ),

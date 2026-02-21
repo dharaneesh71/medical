@@ -78,123 +78,101 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : patients.isEmpty
-              ? const Center(child: Text("No data available"))
-              : Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Align(
-                        alignment: Alignment.centerRight,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    AddPatientPage(user: widget.user),
-                              ),
-                            ).then((_) {
-                              setState(() {
-                                isLoading = true;
-                              });
-                              fetchRanking();
-                            });
-                          },
-                          icon: const Icon(Icons.person_add),
-                          label: const Text("Add Patient"),
-                        ),
-                      ),
+          ? const Center(child: Text("No data available"))
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => AddPatientPage(user: widget.user),
+                          ),
+                        ).then((_) {
+                          setState(() {
+                            isLoading = true;
+                          });
+                          fetchRanking();
+                        });
+                      },
+                      icon: const Icon(Icons.person_add),
+                      label: const Text("Add Patient"),
                     ),
-                    Expanded(
-                      child: ListView(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 16),
-                        children: patients.map((p) {
-                          final first =
-                              (p["first_name"] ?? "").toString();
-                          final last =
-                              (p["last_name"] ?? "").toString();
-                          final adherence =
-                              (p["adherence_rate"] ?? 0).toString();
-                          final severity =
-                              (p["severity_score"] ?? 0)
-                                  .toDouble();
-                          final risk =
-                              (p["risk_level"] ?? "low")
-                                  .toString();
+                  ),
+                ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    children: patients.map((p) {
+                      final first = (p["first_name"] ?? "").toString();
+                      final last = (p["last_name"] ?? "").toString();
+                      final adherence = (p["adherence_rate"] ?? 0).toString();
+                      final severity = (p["severity_score"] ?? 0).toDouble();
+                      final risk = (p["risk_level"] ?? "low").toString();
 
-                          return GestureDetector(
-                            onTap: () async {
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      DoctorPatientDetailPage(
-                                    patientId: p["id"],
-                                    patientName:
-                                        "$first $last",
-                                    role: widget.user.role,
-                                  ),
-                                ),
-                              );
-
-                              setState(() {
-                                isLoading = true;
-                              });
-
-                              await fetchRanking();
-                            },
-                            child: Card(
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 8),
-                              child: Padding(
-                                padding:
-                                    const EdgeInsets.all(16),
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      "$first $last",
-                                      style:
-                                          const TextStyle(
-                                        fontSize: 18,
-                                        fontWeight:
-                                            FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                        "Adherence: $adherence%"),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      "Risk: ${risk.toUpperCase()}",
-                                      style: TextStyle(
-                                        color:
-                                            riskColor(risk),
-                                        fontWeight:
-                                            FontWeight.bold,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 6),
-                                    LinearProgressIndicator(
-                                      value: (severity / 100)
-                                          .clamp(0.0, 1.0),
-                                      color:
-                                          riskColor(risk),
-                                      backgroundColor:
-                                          Colors.grey.shade300,
-                                    ),
-                                  ],
-                                ),
+                      return GestureDetector(
+                        onTap: () async {
+                          await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => DoctorPatientDetailPage(
+                                patientId: p["id"],
+                                patientName: "$first $last",
+                                role: widget.user.role,
                               ),
                             ),
                           );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
+
+                          setState(() {
+                            isLoading = true;
+                          });
+
+                          await fetchRanking();
+                        },
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(vertical: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "$first $last",
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text("Adherence: $adherence%"),
+                                const SizedBox(height: 6),
+                                Text(
+                                  "Risk: ${risk.toUpperCase()}",
+                                  style: TextStyle(
+                                    color: riskColor(risk),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                LinearProgressIndicator(
+                                  value: (severity / 100).clamp(0.0, 1.0),
+                                  color: riskColor(risk),
+                                  backgroundColor: Colors.grey.shade300,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
+              ],
+            ),
     );
   }
 }
