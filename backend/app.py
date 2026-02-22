@@ -19,7 +19,9 @@ def require_roles(allowed_roles):
             if role not in allowed_roles:
                 return jsonify({"error": "Forbidden"}), 403
             return f(*args, **kwargs)
+
         return wrapper
+
     return decorator
 
 
@@ -29,12 +31,14 @@ CORS(app, resources={r"/*": {"origins": "*"}})
 
 # ================= INIT DB =================
 
+
 def init_db():
     conn = get_connection()
     cursor = conn.cursor()
 
     # ---------- PATIENTS ----------
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS patients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             first_name TEXT NOT NULL,
@@ -44,10 +48,12 @@ def init_db():
             note TEXT,
             is_active INTEGER DEFAULT 1
         )
-    """)
+    """
+    )
 
     # ---------- MEDICATIONS ----------
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS medications (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             patient_id INTEGER,
@@ -57,10 +63,12 @@ def init_db():
             interval_hours INTEGER DEFAULT 8,
             is_active INTEGER DEFAULT 1
         )
-    """)
+    """
+    )
 
     # ---------- ADHERENCE LOGS ----------
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS adherence_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             patient_id INTEGER,
@@ -68,36 +76,43 @@ def init_db():
             status TEXT,
             timestamp TEXT
         )
-    """)
+    """
+    )
 
     # ---------- USERS ----------
-    cursor.execute("""
+    cursor.execute(
+        """
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT UNIQUE,
             password TEXT,
             role TEXT
         )
-    """)
+    """
+    )
 
     conn.commit()
 
     # ---------- SEED DATA ----------
     if cursor.execute("SELECT COUNT(*) FROM patients").fetchone()[0] == 0:
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO patients 
             (first_name, last_name, date_of_birth, sex, note)
             VALUES 
             ('John', 'Doe', '1980-05-12', 'Male', 'Diabetes patient')
-        """)
+        """
+        )
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO patients 
             (first_name, last_name, date_of_birth, sex, note)
             VALUES 
             ('Mary', 'Smith', '1975-09-20', 'Female', 'Hypertension monitoring')
-        """)
+        """
+        )
 
         cursor.execute(
             "INSERT INTO medications (patient_id,name,dosage,time,interval_hours) VALUES (1,'Aspirin','100mg','08:00',8)"
@@ -121,6 +136,8 @@ def init_db():
 
     conn.commit()
     conn.close()
+
+
 # ================= PATIENT =================
 
 
@@ -128,7 +145,8 @@ def init_db():
 @require_roles(["doctor", "caregiver"])
 def get_patients():
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
     SELECT 
         id,
         first_name,
@@ -138,7 +156,8 @@ def get_patients():
         note
     FROM patients
     WHERE is_active=1
-""").fetchall()
+"""
+    ).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -149,17 +168,20 @@ def add_patient():
     data = request.get_json()
     conn = get_connection()
 
-    conn.execute("""
+    conn.execute(
+        """
         INSERT INTO patients
         (first_name, last_name, date_of_birth, sex, note)
         VALUES (?, ?, ?, ?, ?)
-    """, (
-        data["first_name"],
-        data["last_name"],
-        data.get("date_of_birth"),
-        data.get("sex"),
-        data.get("note"),
-    ))
+    """,
+        (
+            data["first_name"],
+            data["last_name"],
+            data.get("date_of_birth"),
+            data.get("sex"),
+            data.get("note"),
+        ),
+    )
 
     conn.commit()
     conn.close()
@@ -175,6 +197,8 @@ def delete_patient(patient_id):
     conn.commit()
     conn.close()
     return jsonify({"message": "Patient deleted"})
+
+
 @app.put("/patients/<int:patient_id>")
 @require_roles(["doctor", "caregiver"])
 def update_patient(patient_id):
@@ -185,7 +209,8 @@ def update_patient(patient_id):
         return jsonify({"error": "first_name and last_name are required"}), 400
 
     conn = get_connection()
-    conn.execute("""
+    conn.execute(
+        """
         UPDATE patients
         SET first_name=?,
             last_name=?,
@@ -193,14 +218,16 @@ def update_patient(patient_id):
             sex=?,
             note=?
         WHERE id=? AND is_active=1
-    """, (
-        data["first_name"],
-        data["last_name"],
-        data.get("date_of_birth"),
-        data.get("sex"),
-        data.get("note"),
-        patient_id
-    ))
+    """,
+        (
+            data["first_name"],
+            data["last_name"],
+            data.get("date_of_birth"),
+            data.get("sex"),
+            data.get("note"),
+            patient_id,
+        ),
+    )
     conn.commit()
     conn.close()
 
@@ -208,6 +235,7 @@ def update_patient(patient_id):
 
 
 # ================= MEDICATION =================
+
 
 @app.get("/medications/<int:patient_id>")
 @require_roles(["doctor", "caregiver", "patient"])
@@ -219,7 +247,7 @@ def get_medications(patient_id):
     FROM medications
     WHERE patient_id=? AND is_active=1
     """,
-        (patient_id,)
+        (patient_id,),
     ).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
@@ -235,13 +263,7 @@ def add_medication():
 
     conn.execute(
         "INSERT INTO medications (patient_id,name,dosage,time,interval_hours) VALUES (?,?,?,?,?)",
-        (
-            data["patient_id"],
-            data["name"],
-            data["dosage"],
-            data["time"],
-            interval
-        )
+        (data["patient_id"], data["name"], data["dosage"], data["time"], interval),
     )
 
     conn.commit()
@@ -255,10 +277,7 @@ def add_medication():
 def delete_medication(medication_id):
     conn = get_connection()
 
-    conn.execute(
-        "UPDATE medications SET is_active=0 WHERE id=?",
-        (medication_id,)
-    )
+    conn.execute("UPDATE medications SET is_active=0 WHERE id=?", (medication_id,))
 
     conn.commit()
     conn.close()
@@ -283,8 +302,8 @@ def update_medication(medication_id):
             data["dosage"],
             data["time"],
             data.get("interval_hours", 8),
-            medication_id
-        )
+            medication_id,
+        ),
     )
     conn.commit()
     conn.close()
@@ -294,6 +313,7 @@ def update_medication(medication_id):
 
 # ================= ADHERENCE =================
 
+
 @app.post("/adherence/log")
 @require_roles(["patient", "doctor", "caregiver"])
 def log_adherence():
@@ -302,38 +322,33 @@ def log_adherence():
     cursor = conn.cursor()
 
     med = cursor.execute(
-        "SELECT interval_hours FROM medications WHERE id=?",
-        (data["medication_id"],)
+        "SELECT interval_hours FROM medications WHERE id=?", (data["medication_id"],)
     ).fetchone()
 
     interval = med["interval_hours"] if med else 8
 
-    last_log = cursor.execute("""
+    last_log = cursor.execute(
+        """
         SELECT timestamp FROM adherence_logs
         WHERE patient_id=? AND medication_id=?
         ORDER BY timestamp DESC
         LIMIT 1
-    """, (data["patient_id"], data["medication_id"])).fetchone()
+    """,
+        (data["patient_id"], data["medication_id"]),
+    ).fetchone()
 
-    if last_log:
-        last_time = datetime.fromisoformat(last_log["timestamp"])
-        hours_passed = (datetime.now() - last_time).total_seconds() / 3600
-
-        if hours_passed < interval:
-            conn.close()
-            return jsonify({
-                "error": f"Too early. Next dose in {round(interval - hours_passed, 1)} hours."
-            }), 400
-
-    cursor.execute("""
+    cursor.execute(
+        """
         INSERT INTO adherence_logs (patient_id,medication_id,status,timestamp)
         VALUES (?,?,?,?)
-    """, (
-        data["patient_id"],
-        data["medication_id"],
-        data["status"],
-        datetime.now().isoformat()
-    ))
+    """,
+        (
+            data["patient_id"],
+            data["medication_id"],
+            data["status"],
+            datetime.now().isoformat(),
+        ),
+    )
 
     conn.commit()
     conn.close()
@@ -341,55 +356,131 @@ def log_adherence():
     return jsonify({"message": "Logged"}), 201
 
 
-@app.post("/adherence/reset/<int:patient_id>")
-@require_roles(["doctor"])
-def reset(patient_id):
+# reset
+@app.post("/adherence/reset")
+def reset_today_status():
+    data = request.get_json()
+
+    patient_id = data.get("patient_id")
+    medication_id = data.get("medication_id")
+
+    if not patient_id or not medication_id:
+        return jsonify({"error": "Missing parameters"}), 400
+
     conn = get_connection()
+
+    today = datetime.now().date()
+
     conn.execute(
-        "DELETE FROM adherence_logs WHERE patient_id=?", (patient_id,))
+        """
+        DELETE FROM adherence_logs
+        WHERE patient_id = ?
+        AND medication_id = ?
+        AND DATE(timestamp) = ?
+        """,
+        (patient_id, medication_id, today),
+    )
+
     conn.commit()
     conn.close()
-    return jsonify({"message": "Reset done"})
+
+    return jsonify({"message": "Today's logs cleared"}), 200
 
 
 # ================= SUMMARY =================
 
+
 @app.get("/adherence/summary/<int:patient_id>")
 @require_roles(["doctor", "caregiver", "patient"])
 def summary(patient_id):
+
     conn = get_connection()
+    cursor = conn.cursor()
+
+    meds = cursor.execute(
+        """
+        SELECT id, name, interval_hours
+        FROM medications
+        WHERE patient_id=? AND is_active=1
+    """,
+        (patient_id,),
+    ).fetchall()
+
+    overall_taken = 0
+    overall_missed = 0
+    breakdown = []
+    today_status = {}
+
     today = datetime.now().date().isoformat()
 
-    rows = conn.execute("""
-    SELECT adherence_logs.medication_id,
-           adherence_logs.status,
-           substr(adherence_logs.timestamp,1,10) as d
-    FROM adherence_logs
-    JOIN medications
-        ON adherence_logs.medication_id = medications.id
-    WHERE adherence_logs.patient_id=? 
-      AND medications.is_active=1
-""", (patient_id,)).fetchall()
+    for med in meds:
+        med_id = med["id"]
+        med_name = med["name"]
+
+        logs = cursor.execute(
+            """
+            SELECT status, timestamp
+            FROM adherence_logs
+            WHERE patient_id=? AND medication_id=?
+        """,
+            (patient_id, med_id),
+        ).fetchall()
+
+        taken = sum(1 for r in logs if r["status"] == "taken")
+        missed = sum(1 for r in logs if r["status"] == "missed")
+        total = len(logs)
+
+        rate = round((taken / total) * 100, 2) if total > 0 else 0
+
+        overall_taken += taken
+        overall_missed += missed
+
+        breakdown.append(
+            {
+                "medication_id": med_id,
+                "name": med_name,
+                "taken": taken,
+                "missed": missed,
+                "total": total,
+                "adherence_rate": rate,
+            }
+        )
+
+        # 🔹 today status
+        today_log = cursor.execute(
+            """
+            SELECT status FROM adherence_logs
+            WHERE patient_id=? AND medication_id=?
+              AND DATE(timestamp)=?
+            ORDER BY timestamp DESC
+            LIMIT 1
+        """,
+            (patient_id, med_id, today),
+        ).fetchone()
+
+        if today_log:
+            today_status[str(med_id)] = today_log["status"]
+
+    overall_total = overall_taken + overall_missed
+    overall_rate = (
+        round((overall_taken / overall_total) * 100, 2) if overall_total > 0 else 0
+    )
 
     conn.close()
 
-    taken = sum(1 for r in rows if r["status"] == "taken")
-    missed = sum(1 for r in rows if r["status"] == "missed")
-    total = len(rows)
-    rate = round((taken/total)*100, 2) if total > 0 else 0
+    return jsonify(
+        {
+            "overall_taken": overall_taken,
+            "overall_missed": overall_missed,
+            "overall_rate": overall_rate,
+            "breakdown": breakdown,
+            "today_status": today_status,
+        }
+    )
 
-    today_status = {}
-    for r in rows:
-        if r["d"] == today:
-            today_status[str(r["medication_id"])] = r["status"]
 
-    return jsonify({
-        "taken": taken,
-        "missed": missed,
-        "adherence_rate": rate,
-        "today_status": today_status
-    })
 # ================= TREND =================
+
 
 @app.get("/adherence/trend/<int:patient_id>")
 @require_roles(["doctor", "caregiver"])
@@ -397,7 +488,8 @@ def adherence_trend(patient_id):
 
     conn = get_connection()
 
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         SELECT 
             medications.name as medication_name,
             adherence_logs.status,
@@ -407,7 +499,9 @@ def adherence_trend(patient_id):
             ON adherence_logs.medication_id = medications.id
         WHERE adherence_logs.patient_id = ?
         ORDER BY adherence_logs.timestamp ASC
-    """, (patient_id,)).fetchall()
+    """,
+        (patient_id,),
+    ).fetchall()
 
     conn.close()
 
@@ -418,12 +512,11 @@ def adherence_trend(patient_id):
         if med not in trend_data:
             trend_data[med] = []
 
-        trend_data[med].append({
-            "status": r["status"],
-            "timestamp": r["timestamp"]
-        })
+        trend_data[med].append({"status": r["status"], "timestamp": r["timestamp"]})
 
     return jsonify(trend_data)
+
+
 # ================= LOG HISTORY =================
 
 
@@ -432,7 +525,8 @@ def get_logs(patient_id):
 
     conn = get_connection()
 
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         SELECT 
             adherence_logs.id,
             adherence_logs.status,
@@ -443,7 +537,9 @@ def get_logs(patient_id):
             ON adherence_logs.medication_id = medications.id
         WHERE adherence_logs.patient_id = ?
         ORDER BY adherence_logs.timestamp DESC
-    """, (patient_id,)).fetchall()
+    """,
+        (patient_id,),
+    ).fetchall()
 
     conn.close()
 
@@ -452,24 +548,26 @@ def get_logs(patient_id):
 
 # ================= DOCTOR RISK =================
 
+
 @app.get("/ai/risk-ranking")
 @require_roles(["doctor"])
 def risk_ranking():
 
     conn = get_connection()
 
-    patients = conn.execute("""
+    patients = conn.execute(
+        """
         SELECT id, first_name, last_name
         FROM patients
         WHERE is_active=1
-    """).fetchall()
+    """
+    ).fetchall()
 
     result = []
 
     for p in patients:
         logs = conn.execute(
-            "SELECT status FROM adherence_logs WHERE patient_id=?",
-            (p["id"],)
+            "SELECT status FROM adherence_logs WHERE patient_id=?", (p["id"],)
         ).fetchall()
 
         if not logs:
@@ -489,14 +587,16 @@ def risk_ranking():
             risk = "high"
             severity = 85
 
-        result.append({
-            "id": p["id"],
-            "first_name": p["first_name"],
-            "last_name": p["last_name"],
-            "adherence_rate": adherence_rate,
-            "risk_level": risk,
-            "severity_score": severity
-        })
+        result.append(
+            {
+                "id": p["id"],
+                "first_name": p["first_name"],
+                "last_name": p["last_name"],
+                "adherence_rate": adherence_rate,
+                "risk_level": risk,
+                "severity_score": severity,
+            }
+        )
 
     conn.close()
     result.sort(key=lambda x: x["severity_score"], reverse=True)
@@ -504,6 +604,7 @@ def risk_ranking():
 
 
 # ================= LOGIN =================
+
 
 @app.post("/login")
 def login():
@@ -515,7 +616,7 @@ def login():
     conn = get_connection()
     user = conn.execute(
         "SELECT id, username, role FROM users WHERE username=? AND password=?",
-        (username, password)
+        (username, password),
     ).fetchone()
     conn.close()
 

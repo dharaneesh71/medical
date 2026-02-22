@@ -1,5 +1,5 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class DoctorPatientDetailPage extends StatefulWidget {
@@ -19,190 +19,194 @@ class DoctorPatientDetailPage extends StatefulWidget {
       _DoctorPatientDetailPageState();
 }
 
-class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage> {
+class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
   final String baseUrl = "http://127.0.0.1:5000";
 
-  Map<String, String> get authHeaders => {
-    "X-Role": widget.role,
-    "Content-Type": "application/json",
-  };
-
-  bool isLoading = true;
-  double adherenceRate = 0;
-  String riskLevel = "low";
-
   List medications = [];
-  List logs = [];
+  bool isMedLoading = true;
+  Map<String, dynamic> todayStatus = {};
+  Map<String, dynamic> summaryData = {};
+  bool isSummaryLoading = true;
+  Map<String, dynamic> trendData = {};
+  bool isTrendLoading = true;
 
   @override
   void initState() {
     super.initState();
-    fetchAll();
+    _tabController = TabController(length: 4, vsync: this);
+    fetchMedications();
+    fetchTodayStatus();
+    fetchSummary();
+    fetchTrend();
   }
 
-  Future<void> fetchAll() async {
-    setState(() => isLoading = true);
+  Future<void> fetchMedications() async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/medications/${widget.patientId}"),
+      headers: {"X-Role": widget.role},
+    );
 
-    try {
-      final summaryRes = await http.get(
-        Uri.parse("$baseUrl/adherence/summary/${widget.patientId}"),
-        headers: authHeaders,
-      );
-
-      final medRes = await http.get(
-        Uri.parse("$baseUrl/medications/${widget.patientId}"),
-        headers: authHeaders,
-      );
-
-      final logRes = await http.get(
-        Uri.parse("$baseUrl/adherence/logs/${widget.patientId}"),
-        headers: authHeaders,
-      );
-
-      if (summaryRes.statusCode == 200 &&
-          medRes.statusCode == 200 &&
-          logRes.statusCode == 200) {
-        final summaryData = jsonDecode(summaryRes.body);
-        final medData = jsonDecode(medRes.body);
-        final logData = jsonDecode(logRes.body);
-
-        final rate = (summaryData["adherence_rate"] ?? 0).toDouble();
-
-        String calculatedRisk;
-        if (rate >= 90) {
-          calculatedRisk = "low";
-        } else if (rate >= 70) {
-          calculatedRisk = "moderate";
-        } else {
-          calculatedRisk = "high";
-        }
-
-        setState(() {
-          adherenceRate = rate;
-          riskLevel = calculatedRisk;
-          medications = medData;
-          logs = logData;
-        });
-      }
-    } catch (e) {
-      debugPrint("Error: $e");
+    if (res.statusCode == 200) {
+      setState(() {
+        medications = jsonDecode(res.body);
+        isMedLoading = false;
+      });
+    } else {
+      setState(() => isMedLoading = false);
     }
-
-    setState(() => isLoading = false);
   }
 
-  Future<void> addMedication(
-    String name,
-    String dosage,
-    String time,
-    int interval,
-  ) async {
+  Future<void> fetchTodayStatus() async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/adherence/summary/${widget.patientId}"),
+      headers: {"X-Role": widget.role},
+    );
+
+    if (res.statusCode == 200) {
+      final data = jsonDecode(res.body);
+      setState(() {
+        todayStatus = data["today_status"] ?? {};
+      });
+    }
+  }
+
+  Future<void> fetchSummary() async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/adherence/summary/${widget.patientId}"),
+      headers: {"X-Role": widget.role},
+    );
+
+    if (res.statusCode == 200) {
+      setState(() {
+        summaryData = jsonDecode(res.body);
+        isSummaryLoading = false;
+      });
+    } else {
+      setState(() => isSummaryLoading = false);
+    }
+  }
+  Future<void> fetchTrend() async {
+    final res = await http.get(
+      Uri.parse("$baseUrl/adherence/trend/${widget.patientId}"),
+      headers: {"X-Role": widget.role},
+    );
+
+    if (res.statusCode == 200) {
+      setState(() {
+        trendData = jsonDecode(res.body);
+        isTrendLoading = false;
+      });
+    } else {
+      setState(() => isTrendLoading = false);
+    }
+  }
+
+  Future<void> logMedication(int medId, String status) async {
     final res = await http.post(
-      Uri.parse("$baseUrl/medications"),
-      headers: authHeaders,
+      Uri.parse("$baseUrl/adherence/log"),
+      headers: {"Content-Type": "application/json", "X-Role": widget.role},
       body: jsonEncode({
         "patient_id": widget.patientId,
-        "name": name,
-        "dosage": dosage,
-        "time": time,
-        "interval_hours": interval,
+        "medication_id": medId,
+        "status": status,
       }),
     );
 
     if (res.statusCode == 201) {
-      await fetchAll();
+      await fetchTodayStatus();
+      await fetchSummary();
+      await fetchTrend();
+    } else {
+      final data = jsonDecode(res.body);
+      showErrorDialog(data["error"] ?? "Error logging");
     }
   }
 
-  Future<void> deleteMedication(int medicationId) async {
-    final res = await http.delete(
-      Uri.parse("$baseUrl/medications/$medicationId"),
-      headers: authHeaders,
-    );
-
-    if (res.statusCode == 200) {
-      await fetchAll();
-    }
-  }
-
-  void confirmDeleteMedication(int medicationId) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Delete Medication"),
-        content: const Text("Are you sure you want to delete this medication?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () async {
-              await deleteMedication(medicationId);
-              Navigator.pop(context);
-            },
-            child: const Text("Delete"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> updateMedication(
-    int id,
-    String name,
-    String dosage,
-    String time,
-    int interval,
-  ) async {
-    final res = await http.put(
-      Uri.parse("$baseUrl/medications/$id"),
-      headers: authHeaders,
+  Future<void> resetTodayStatus(int medId) async {
+    final res = await http.post(
+      Uri.parse("$baseUrl/adherence/reset"),
+      headers: {"Content-Type": "application/json", "X-Role": widget.role},
       body: jsonEncode({
-        "name": name,
-        "dosage": dosage,
-        "time": time,
-        "interval_hours": interval,
+        "patient_id": widget.patientId,
+        "medication_id": medId,
       }),
     );
 
     if (res.statusCode == 200) {
-      await fetchAll();
+      await fetchTodayStatus();
+      await fetchSummary();
+      await fetchTrend();
+    } else {
+      final data = jsonDecode(res.body);
+      showErrorDialog(data["error"] ?? "Reset failed");
     }
   }
 
-  void showAddMedicationDialog() {
-    final nameController = TextEditingController();
-    final dosageController = TextEditingController();
-    final timeController = TextEditingController();
-    final intervalController = TextEditingController();
+  Future<void> deleteMedication(int medId) async {
+    await http.delete(
+      Uri.parse("$baseUrl/medications/$medId"),
+      headers: {"X-Role": widget.role},
+    );
+    await fetchMedications();
+  }
+
+  void showErrorDialog(String msg) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Error"),
+        content: Text(msg),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void showMedicationDialog({dynamic med}) {
+    final name = TextEditingController(text: med?["name"] ?? "");
+    final dosage = TextEditingController(text: med?["dosage"] ?? "");
+    final time = TextEditingController(text: med?["time"] ?? "");
+    final interval = TextEditingController(
+      text: med?["interval_hours"]?.toString() ?? "8",
+    );
+
+    final bool isEdit = med != null;
 
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text("Add Medication"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Name"),
-            ),
-            TextField(
-              controller: dosageController,
-              decoration: const InputDecoration(labelText: "Dosage"),
-            ),
-            TextField(
-              controller: timeController,
-              decoration: const InputDecoration(labelText: "Time"),
-            ),
-            TextField(
-              controller: intervalController,
-              decoration: const InputDecoration(labelText: "Interval Hours"),
-              keyboardType: TextInputType.number,
-            ),
-          ],
+        title: Text(isEdit ? "Edit Medication" : "Add Medication"),
+        content: SingleChildScrollView(
+          child: Column(
+            children: [
+              TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: "Name"),
+              ),
+              TextField(
+                controller: dosage,
+                decoration: const InputDecoration(labelText: "Dosage"),
+              ),
+              TextField(
+                controller: time,
+                decoration: const InputDecoration(labelText: "Time (HH:MM)"),
+              ),
+              TextField(
+                controller: interval,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Interval (hours)",
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -211,152 +215,351 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage> {
           ),
           ElevatedButton(
             onPressed: () async {
-              await addMedication(
-                nameController.text,
-                dosageController.text,
-                timeController.text,
-                int.tryParse(intervalController.text) ?? 8,
-              );
+              if (isEdit) {
+                await http.put(
+                  Uri.parse("$baseUrl/medications/${med["medication_id"]}"),
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-Role": widget.role,
+                  },
+                  body: jsonEncode({
+                    "name": name.text,
+                    "dosage": dosage.text,
+                    "time": time.text,
+                    "interval_hours": int.tryParse(interval.text) ?? 8,
+                  }),
+                );
+              } else {
+                await http.post(
+                  Uri.parse("$baseUrl/medications"),
+                  headers: {
+                    "Content-Type": "application/json",
+                    "X-Role": widget.role,
+                  },
+                  body: jsonEncode({
+                    "patient_id": widget.patientId,
+                    "name": name.text,
+                    "dosage": dosage.text,
+                    "time": time.text,
+                    "interval_hours": int.tryParse(interval.text) ?? 8,
+                  }),
+                );
+              }
+
               Navigator.pop(context);
+              await fetchMedications();
             },
-            child: const Text("Add"),
+            child: Text(isEdit ? "Save" : "Add"),
           ),
         ],
       ),
     );
   }
 
-  void showEditMedicationDialog(Map med) {
-    final nameController = TextEditingController(text: med["name"]);
-    final dosageController = TextEditingController(text: med["dosage"]);
-    final timeController = TextEditingController(text: med["time"]);
-    final intervalController = TextEditingController(
-      text: med["interval_hours"].toString(),
-    );
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text("Edit Medication"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Name"),
-            ),
-            TextField(
-              controller: dosageController,
-              decoration: const InputDecoration(labelText: "Dosage"),
-            ),
-            TextField(
-              controller: timeController,
-              decoration: const InputDecoration(labelText: "Time"),
-            ),
-            TextField(
-              controller: intervalController,
-              decoration: const InputDecoration(labelText: "Interval Hours"),
-              keyboardType: TextInputType.number,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              await updateMedication(
-                med["medication_id"],
-                nameController.text,
-                dosageController.text,
-                timeController.text,
-                int.tryParse(intervalController.text) ?? 8,
-              );
-              Navigator.pop(context);
-            },
-            child: const Text("Save"),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Color riskColor(String risk) {
-    if (risk == "high") return Colors.red;
-    if (risk == "moderate") return Colors.orange;
-    return Colors.green;
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.patientName)),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : RefreshIndicator(
-              onRefresh: fetchAll,
-              child: ListView(
-                padding: const EdgeInsets.all(16),
+      appBar: AppBar(
+        title: Text(widget.patientName),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: const [
+            Tab(text: "Medications"),
+            Tab(text: "Summary"),
+            Tab(text: "Trend"),
+            Tab(text: "Logs"),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          buildMedicationsTab(),
+          buildSummaryTab(),
+          buildTrendTab(),
+          const Center(child: Text("Logs coming next")),
+        ],
+      ),
+    );
+  }
+
+  Widget buildSummaryTab() {
+    if (isSummaryLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (summaryData.isEmpty) {
+      return const Center(child: Text("No summary data available"));
+    }
+
+    final overallRate = summaryData["overall_rate"] ?? 0;
+    final overallTaken = summaryData["overall_taken"] ?? 0;
+    final overallMissed = summaryData["overall_missed"] ?? 0;
+    final breakdown = summaryData["breakdown"] as List;
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Overall Card
+        Card(
+          elevation: 4,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Overall Patient Summary",
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Text("Adherence Rate: $overallRate%"),
+                Text("Taken: $overallTaken"),
+                Text("Missed: $overallMissed"),
+              ],
+            ),
+          ),
+        ),
+
+        const SizedBox(height: 20),
+
+        const Text(
+          "Medication Breakdown",
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+
+        const SizedBox(height: 10),
+
+        ...breakdown.map((med) {
+          return Card(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "Adherence: ${adherenceRate.toStringAsFixed(1)}%",
+                    med["name"],
                     style: const TextStyle(
-                      fontSize: 22,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Text(
-                    "Risk: ${riskLevel.toUpperCase()}",
-                    style: TextStyle(
-                      color: riskColor(riskLevel),
-                      fontWeight: FontWeight.bold,
+                  Text("Taken: ${med["taken"]}"),
+                  Text("Missed: ${med["missed"]}"),
+                  Text("Adherence Rate: ${med["adherence_rate"]}%"),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  Widget buildTrendTab() {
+    if (isTrendLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (trendData.isEmpty) {
+      return const Center(child: Text("No trend data available"));
+    }
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: trendData.entries.map((entry) {
+        final medName = entry.key;
+        final logs = entry.value as List;
+
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 10),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  medName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+
+                ...logs.map((log) {
+                  final status = log["status"];
+                  final timestamp = log["timestamp"];
+
+                  return ListTile(
+                    leading: Icon(
+                      status == "taken" ? Icons.check_circle : Icons.cancel,
+                      color: status == "taken" ? Colors.green : Colors.red,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(
-                    value: adherenceRate / 100,
-                    color: riskColor(riskLevel),
-                    backgroundColor: Colors.grey.shade300,
-                  ),
-                  const SizedBox(height: 30),
-                  const Text(
-                    "Medications",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 12),
-                  ...medications.map(
-                    (med) => Card(
-                      child: ListTile(
-                        title: Text(med["name"]),
-                        subtitle: Text("${med["dosage"]} - ${med["time"]}"),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
+                    title: Text(status.toUpperCase()),
+                    subtitle: Text(timestamp),
+                  );
+                }).toList(),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget buildMedicationsTab() {
+    if (isMedLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    return Column(
+      children: [
+        if (widget.role == "doctor")
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: Tooltip(
+                message: "Add new medication",
+                child: ElevatedButton.icon(
+                  onPressed: () => showMedicationDialog(),
+                  icon: const Icon(Icons.add),
+                  label: const Text("Add Medication"),
+                ),
+              ),
+            ),
+          ),
+        Expanded(
+          child: medications.isEmpty
+              ? const Center(child: Text("No medications assigned"))
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: medications.length,
+                  itemBuilder: (context, index) {
+                    final med = medications[index];
+                    final int medId =
+                        (med["medication_id"] ?? med["id"]) as int;
+                    final status = todayStatus[medId.toString()];
+
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 10),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: Colors.blue),
-                              onPressed: () => showEditMedicationDialog(med),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  med["name"],
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (widget.role == "doctor")
+                                  Row(
+                                    children: [
+                                      Tooltip(
+                                        message: "Edit medication",
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.edit,
+                                            color: Colors.blue,
+                                          ),
+                                          onPressed: () =>
+                                              showMedicationDialog(med: med),
+                                        ),
+                                      ),
+                                      Tooltip(
+                                        message: "Remove medication",
+                                        child: IconButton(
+                                          icon: const Icon(
+                                            Icons.delete,
+                                            color: Colors.red,
+                                          ),
+                                          onPressed: () =>
+                                              deleteMedication(medId),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                              ],
                             ),
-                            IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () =>
-                                  confirmDeleteMedication(med["medication_id"]),
+                            Text("${med["dosage"]} • ${med["time"]}"),
+                            Text("Every ${med["interval_hours"]} hours"),
+                            const SizedBox(height: 8),
+                            Text(
+                              status == null
+                                  ? "Today: NOT LOGGED"
+                                  : "Today: ${status.toUpperCase()}",
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: status == "taken"
+                                    ? Colors.green
+                                    : status == "missed"
+                                    ? Colors.red
+                                    : Colors.grey,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Tooltip(
+                                    message: "Mark as taken",
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                      ),
+                                      onPressed: () =>
+                                          logMedication(medId, "taken"),
+                                      child: const Text("Taken"),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Tooltip(
+                                    message: "Mark as missed",
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.red,
+                                      ),
+                                      onPressed: () =>
+                                          logMedication(medId, "missed"),
+                                      child: const Text("Missed"),
+                                    ),
+                                  ),
+                                ),
+                                if (widget.role == "doctor")
+                                  Tooltip(
+                                    message: "Reset today's status",
+                                    child: IconButton(
+                                      icon: const Icon(Icons.refresh),
+                                      onPressed: () => resetTodayStatus(medId),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ],
                         ),
                       ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: showAddMedicationDialog,
-        icon: const Icon(Icons.medication),
-        label: const Text("Add Medication"),
-      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
   }
 }
