@@ -505,16 +505,62 @@ def adherence_trend(patient_id):
 
     conn.close()
 
-    trend_data = {}
+    if not rows:
+        return jsonify({"overall": {}, "medications": []})
+
+    medication_data = {}
+    total_taken = 0
+    total_logs = 0
 
     for r in rows:
         med = r["medication_name"]
-        if med not in trend_data:
-            trend_data[med] = []
+        status = r["status"]
 
-        trend_data[med].append({"status": r["status"], "timestamp": r["timestamp"]})
+        if med not in medication_data:
+            medication_data[med] = {"taken": 0, "total": 0, "trend": []}
 
-    return jsonify(trend_data)
+        medication_data[med]["total"] += 1
+        total_logs += 1
+
+        if status == "taken":
+            medication_data[med]["taken"] += 1
+            total_taken += 1
+
+        medication_data[med]["trend"].append(status)
+
+    medications_list = []
+
+    for med_name, data in medication_data.items():
+        adherence_rate = round((data["taken"] / data["total"]) * 100)
+
+        medications_list.append(
+            {
+                "name": med_name,
+                "adherence_rate": adherence_rate,
+                "missed": data["total"] - data["taken"],
+                "trend": data["trend"],
+            }
+        )
+
+    overall_rate = round((total_taken / total_logs) * 100)
+
+    if overall_rate >= 85:
+        risk = "Low"
+    elif overall_rate >= 60:
+        risk = "Medium"
+    else:
+        risk = "High"
+
+    return jsonify(
+        {
+            "overall": {
+                "adherence_rate": overall_rate,
+                "risk_level": risk,
+                "total_logs": total_logs,
+            },
+            "medications": medications_list,
+        }
+    )
 
 
 # ================= LOG HISTORY =================

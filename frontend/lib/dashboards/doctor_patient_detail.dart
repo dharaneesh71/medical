@@ -363,59 +363,75 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
       ],
     );
   }
+  Widget buildOverallSection() {
+    if (trendData["overall"] == null) return SizedBox();
 
-  Widget buildTrendTab() {
-    if (isTrendLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+    final overall = trendData["overall"];
 
-    if (trendData.isEmpty) {
-      return const Center(child: Text("No trend data available"));
-    }
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: trendData.entries.map((entry) {
-        final medName = entry.key;
-        final logs = entry.value as List;
-
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 10),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  medName,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 10),
-
-                ...logs.map((log) {
-                  final status = log["status"];
-                  final timestamp = log["timestamp"];
-
-                  return ListTile(
-                    leading: Icon(
-                      status == "taken" ? Icons.check_circle : Icons.cancel,
-                      color: status == "taken" ? Colors.green : Colors.red,
-                    ),
-                    title: Text(status.toUpperCase()),
-                    subtitle: Text(timestamp),
-                  );
-                }).toList(),
-              ],
+    return Card(
+      elevation: 3,
+      margin: EdgeInsets.all(12),
+      child: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Overall Adherence",
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
+            SizedBox(height: 8),
+            Text("Adherence Rate: ${overall["adherence_rate"]}%"),
+            Text("Risk Level: ${overall["risk_level"]}"),
+            Text("Total Logs: ${overall["total_logs"]}"),
+          ],
+        ),
+      ),
+    );
+  }
+  Widget buildMedicationCards() {
+    if (trendData["medications"] == null) return SizedBox();
+
+    final meds = trendData["medications"] as List;
+
+    return Column(
+      children: meds.map((med) {
+        return Card(
+          margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: ListTile(
+            title: Text(med["name"]),
+            subtitle: Text(
+              "Adherence: ${med["adherence_rate"]}% | Missed: ${med["missed"]}",
+            ),
+            trailing: Icon(Icons.show_chart),
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  title: Text("${med["name"]} Trend"),
+                  content: Text(med["trend"].toString()),
+                ),
+              );
+            },
           ),
         );
       }).toList(),
     );
   }
 
+  Widget buildTrendTab() {
+  if (trendData.isEmpty) return Center(child: CircularProgressIndicator());
+
+  return SingleChildScrollView(
+    child: Column(
+      children: [
+        buildOverallSection(),   // Option A
+        buildMedicationCards(),  // Option B
+      ],
+    ),
+  );
+}
+    
   Widget buildMedicationsTab() {
     if (isMedLoading) {
       return const Center(child: CircularProgressIndicator());
