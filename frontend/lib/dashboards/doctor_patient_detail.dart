@@ -104,7 +104,13 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
     }
   }
 
-  Future<void> logMedication(int medId, String status) async {
+  Future<void> logMedication(
+    int medId,
+    String status,
+    int intervalHours,
+  ) async {
+    final now = DateTime.now();
+
     final res = await http.post(
       Uri.parse("$baseUrl/adherence/log"),
       headers: {"Content-Type": "application/json", "X-Role": widget.role},
@@ -116,15 +122,35 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
     );
 
     if (res.statusCode == 201) {
+      final nextDose = now.add(Duration(hours: intervalHours));
+      final difference = nextDose.difference(now);
+
       await fetchTodayStatus();
       await fetchSummary();
       await fetchTrend();
+
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text("Dose Logged"),
+          content: Text(
+            "Status: ${status.toUpperCase()}\n"
+            "Logged at: ${TimeOfDay.fromDateTime(now).format(context)}\n\n"
+            "Next dose in: ${difference.inHours} hours",
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
     } else {
       final data = jsonDecode(res.body);
       showErrorDialog(data["error"] ?? "Error logging");
     }
   }
-
   Future<void> resetTodayStatus(int medId) async {
     final res = await http.post(
       Uri.parse("$baseUrl/adherence/reset"),
@@ -433,149 +459,142 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
 }
     
   Widget buildMedicationsTab() {
-    if (isMedLoading) {
-      return const Center(child: CircularProgressIndicator());
-    }
+  if (isMedLoading) {
+    return const Center(child: CircularProgressIndicator());
+  }
 
-    return Column(
-      children: [
-        if (widget.role == "doctor")
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Align(
-              alignment: Alignment.centerRight,
-              child: Tooltip(
-                message: "Add new medication",
-                child: ElevatedButton.icon(
-                  onPressed: () => showMedicationDialog(),
-                  icon: const Icon(Icons.add),
-                  label: const Text("Add Medication"),
-                ),
-              ),
+  return Column(
+    children: [
+      if (widget.role == "doctor")
+        Padding(
+          padding: const EdgeInsets.all(16),
+          child: Align(
+            alignment: Alignment.centerRight,
+            child: ElevatedButton.icon(
+              onPressed: () => showMedicationDialog(),
+              icon: const Icon(Icons.add),
+              label: const Text("Add Medication"),
             ),
           ),
-        Expanded(
-          child: medications.isEmpty
-              ? const Center(child: Text("No medications assigned"))
-              : ListView.builder(
-                  padding: const EdgeInsets.all(16),
-                  itemCount: medications.length,
-                  itemBuilder: (context, index) {
-                    final med = medications[index];
-                    final int medId =
-                        (med["medication_id"] ?? med["id"]) as int;
-                    final status = todayStatus[medId.toString()];
-
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 10),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  med["name"],
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                if (widget.role == "doctor")
-                                  Row(
-                                    children: [
-                                      Tooltip(
-                                        message: "Edit medication",
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.edit,
-                                            color: Colors.blue,
-                                          ),
-                                          onPressed: () =>
-                                              showMedicationDialog(med: med),
-                                        ),
-                                      ),
-                                      Tooltip(
-                                        message: "Remove medication",
-                                        child: IconButton(
-                                          icon: const Icon(
-                                            Icons.delete,
-                                            color: Colors.red,
-                                          ),
-                                          onPressed: () =>
-                                              deleteMedication(medId),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                              ],
-                            ),
-                            Text("${med["dosage"]} • ${med["time"]}"),
-                            Text("Every ${med["interval_hours"]} hours"),
-                            const SizedBox(height: 8),
-                            Text(
-                              status == null
-                                  ? "Today: NOT LOGGED"
-                                  : "Today: ${status.toUpperCase()}",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: status == "taken"
-                                    ? Colors.green
-                                    : status == "missed"
-                                    ? Colors.red
-                                    : Colors.grey,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Tooltip(
-                                    message: "Mark as taken",
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
-                                      ),
-                                      onPressed: () =>
-                                          logMedication(medId, "taken"),
-                                      child: const Text("Taken"),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Tooltip(
-                                    message: "Mark as missed",
-                                    child: ElevatedButton(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.red,
-                                      ),
-                                      onPressed: () =>
-                                          logMedication(medId, "missed"),
-                                      child: const Text("Missed"),
-                                    ),
-                                  ),
-                                ),
-                                if (widget.role == "doctor")
-                                  Tooltip(
-                                    message: "Reset today's status",
-                                    child: IconButton(
-                                      icon: const Icon(Icons.refresh),
-                                      onPressed: () => resetTodayStatus(medId),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
         ),
-      ],
-    );
+      Expanded(
+        child: medications.isEmpty
+            ? const Center(child: Text("No medications assigned"))
+            : ListView.builder(
+    padding: const EdgeInsets.all(16),
+    itemCount: medications.length,
+    itemBuilder: (context, index) {
+      final med = medications[index];
+      final int medId =
+          (med["medication_id"] ?? med["id"]) as int;
+      final status = todayStatus[medId.toString()];
+
+      return Card(
+        margin: const EdgeInsets.symmetric(vertical: 10),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                med["name"],
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text("${med["dosage"]} • ${med["time"]}"),
+              Text("Every ${med["interval_hours"]} hours"),
+              const SizedBox(height: 8),
+              Text(
+                status == null
+                    ? "Today: NOT LOGGED"
+                    : "Today: ${status.toUpperCase()}",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: status == "taken"
+                      ? Colors.green
+                      : status == "missed"
+                          ? Colors.red
+                          : Colors.grey,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                      ),
+                      onPressed: status != null
+                          ? null
+                          : () => logMedication(
+                                medId,
+                                "taken",
+                                med["interval_hours"] ?? 8,
+                              ),
+                      child: const Text("Taken"),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red,
+                      ),
+                      onPressed: status != null
+                          ? null
+                          : () => logMedication(
+                                medId,
+                                "missed",
+                                med["interval_hours"] ?? 8,
+                              ),
+                      child: const Text("Missed"),
+                    ),
+                  ),
+                  if (widget.role == "doctor")
+                    IconButton(
+                      icon: const Icon(Icons.refresh),
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (_) => AlertDialog(
+                            title: const Text("Confirm Reset"),
+                            content: const Text(
+                              "Are you sure you want to reset today's log?",
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.pop(context),
+                                child: const Text("Cancel"),
+                              ),
+                              ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red,
+                                ),
+                                onPressed: () {
+                                  Navigator.pop(context);
+                                  resetTodayStatus(medId);
+                                },
+                                child: const Text("Reset"),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    },
+  ),
+),
+],
+);
   }
 }
