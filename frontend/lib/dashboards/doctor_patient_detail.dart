@@ -309,7 +309,7 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
           buildMedicationsTab(),
           buildSummaryTab(),
           buildTrendTab(),
-          const Center(child: Text("Logs coming next")),
+          buildLogsTab(),
         ],
       ),
     );
@@ -442,6 +442,46 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
           ),
         );
       }).toList(),
+    );
+  }
+  Widget buildLogsTab() {
+    return FutureBuilder(
+      future: http.get(
+        Uri.parse("$baseUrl/adherence/logs/${widget.patientId}"),
+        headers: {"X-Role": widget.role},
+      ),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final res = snapshot.data as http.Response;
+        final logs = jsonDecode(res.body);
+
+        if (logs.isEmpty) {
+          return const Center(child: Text("No logs available"));
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: logs.length,
+          itemBuilder: (context, index) {
+            final log = logs[index];
+
+            return Card(
+              margin: const EdgeInsets.symmetric(vertical: 6),
+              child: ListTile(
+                leading: Icon(
+                  log["status"] == "taken" ? Icons.check_circle : Icons.cancel,
+                  color: log["status"] == "taken" ? Colors.green : Colors.red,
+                ),
+                title: Text(log["medication_name"]),
+                subtitle: Text(log["timestamp"]),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
