@@ -346,6 +346,20 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
                 ),
                 const SizedBox(height: 8),
                 Text("Adherence Rate: $overallRate%"),
+                SizedBox(height: 8),
+
+                LinearProgressIndicator(
+                  value: overallRate / 100,
+                  minHeight: 10,
+                  backgroundColor: Colors.grey.shade300,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    overallRate >= 85
+                        ? Colors.green
+                        : overallRate >= 60
+                        ? Colors.orange
+                        : Colors.red,
+                  ),
+                ),
                 Text("Taken: $overallTaken"),
                 Text("Missed: $overallMissed"),
               ],
@@ -393,6 +407,7 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
     if (trendData["overall"] == null) return SizedBox();
 
     final overall = trendData["overall"];
+    final rate = overall["adherence_rate"] ?? 0;
 
     return Card(
       elevation: 3,
@@ -407,7 +422,21 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             SizedBox(height: 8),
-            Text("Adherence Rate: ${overall["adherence_rate"]}%"),
+            Text("Adherence Rate: $rate%"),
+            SizedBox(height: 8),
+            LinearProgressIndicator(
+              value: rate / 100,
+              minHeight: 10,
+              backgroundColor: Colors.grey.shade300,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                rate >= 85
+                    ? Colors.green
+                    : rate >= 60
+                    ? Colors.orange
+                    : Colors.red,
+              ),
+            ),
+            SizedBox(height: 8),
             Text("Risk Level: ${overall["risk_level"]}"),
             Text("Total Logs: ${overall["total_logs"]}"),
           ],
@@ -423,12 +452,67 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
     return Column(
       children: meds.map((med) {
         return Card(
+          elevation: 3,
           margin: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
           child: ListTile(
+        
             title: Text(med["name"]),
-            subtitle: Text(
-              "Adherence: ${med["adherence_rate"]}% | Missed: ${med["missed"]}",
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Adherence: ${med["adherence_rate"]}%"),
+
+                SizedBox(height: 6),
+
+                LinearProgressIndicator(
+                  value: (med["adherence_rate"] ?? 0) / 100,
+                  minHeight: 10,
+                  backgroundColor: Colors.grey.shade300,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    med["adherence_rate"] >= 85
+                        ? Colors.green
+                        : med["adherence_rate"] >= 60
+                        ? Colors.orange
+                        : Colors.red,
+                  ),
+                ),
+
+                SizedBox(height: 6),
+
+                Text(
+                  med["adherence_rate"] >= 85
+                      ? "Good adherence pattern"
+                      : med["adherence_rate"] >= 60
+                      ? "Moderate adherence – monitor closely"
+                      : "Poor adherence – attention required",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: med["adherence_rate"] >= 85
+                        ? Colors.green
+                        : med["adherence_rate"] >= 60
+                        ? Colors.orange
+                        : Colors.red,
+                  ),
+                ),
+
+                SizedBox(height: 8),
+
+                Wrap(
+                  spacing: 6,
+                  children: (med["trend"] as List).map<Widget>((status) {
+                    return Icon(
+                      Icons.circle,
+                      size: 10,
+                      color: status == "taken" ? Colors.green : Colors.red,
+                    );
+                  }).toList(),
+                ),
+              ],
             ),
+            
             trailing: Icon(Icons.show_chart),
             onTap: () {
               showDialog(
