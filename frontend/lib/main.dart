@@ -357,7 +357,68 @@ class _DashboardPageState extends State<DashboardPage> {
 
   /* ================= LOG ================= */
 
-  Future<void> logStatus(int medId, String status) async {
+Future<void> logStatus(int medId, String status) async {
+    final now = DateTime.now();
+
+    // گرفتن لاگ‌های قبلی
+    final logsRes = await http.get(
+      Uri.parse("$baseUrl/adherence/logs/$patientId"),
+      headers: {"X-Role": widget.user.role},
+    );
+
+    if (logsRes.statusCode != 200) {
+      _snack("Error checking previous logs");
+      return;
+    }
+
+    final logs = jsonDecode(logsRes.body);
+
+    final med = medications.firstWhere(
+      (m) => (m["medication_id"] ?? m["id"]) == medId,
+    );
+
+    final int intervalHours = med["interval_hours"] ?? 8;
+
+    // پیدا کردن آخرین لاگ همین دارو
+    final lastLog = logs.firstWhere(
+      (l) => l["medication_name"] == med["name"],
+      orElse: () => null,
+    );
+
+    if (lastLog != null) {
+      final lastTimestamp = DateTime.parse(lastLog["timestamp"]);
+      final nextAllowed = lastTimestamp.add(Duration(hours: intervalHours));
+
+      if (now.isBefore(nextAllowed)) {
+        final diff = nextAllowed.difference(now);
+        final hrs = diff.inHours;
+        final mins = diff.inMinutes % 60;
+
+        await showDialog(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text("Too Early"),
+            content: Text(
+              "Last logged at: "
+              "${TimeOfDay.fromDateTime(lastTimestamp).format(context)}\n\n"
+              "Next dose available in:\n"
+              "${hrs} hr ${mins} min",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+
+        return; // ❌ اجازه لاگ نمی‌ده
+      }
+    }
+
+    // اگر رسید به اینجا یعنی مجازه
+
     final res = await http.post(
       Uri.parse("$baseUrl/adherence/log"),
       headers: {"Content-Type": "application/json", "X-Role": widget.user.role},
@@ -368,16 +429,29 @@ class _DashboardPageState extends State<DashboardPage> {
       }),
     );
 
-    if (res.statusCode == 201) {
-      await refreshAll();
-    } else {
-      try {
-        final data = jsonDecode(res.body);
-        _snack(data["error"] ?? "Error");
-      } catch (_) {
-        _snack("Server error");
-      }
+    if (res.statusCode != 201) {
+      _snack("Error logging dose");
+      return;
     }
+
+    await refreshAll();
+
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Dose Logged"),
+        content: Text(
+          "Status: ${status.toUpperCase()}\n"
+          "Logged at: ${TimeOfDay.fromDateTime(now).format(context)}",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("OK"),
+          ),
+        ],
+      ),
+    );
   }
 
 Future<void> resetAll() async {
