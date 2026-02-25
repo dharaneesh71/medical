@@ -177,6 +177,7 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
       headers: {"X-Role": widget.role},
     );
     await fetchMedications();
+    await fetchTodayStatus();
   }
 
   void showErrorDialog(String msg) {
@@ -242,8 +243,10 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
           ElevatedButton(
             onPressed: () async {
               if (isEdit) {
+                final int medId = (med["medication_id"] ?? med["id"]) as int;
+
                 await http.put(
-                  Uri.parse("$baseUrl/medications/${med["medication_id"]}"),
+                  Uri.parse("$baseUrl/medications/$medId"),
                   headers: {
                     "Content-Type": "application/json",
                     "X-Role": widget.role,
@@ -273,7 +276,11 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
               }
 
               Navigator.pop(context);
+
               await fetchMedications();
+              await fetchSummary();
+              await fetchTrend();
+              await fetchTodayStatus();
             },
             child: Text(isEdit ? "Save" : "Add"),
           ),

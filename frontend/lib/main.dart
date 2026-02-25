@@ -380,19 +380,21 @@ class _DashboardPageState extends State<DashboardPage> {
     }
   }
 
-  Future<void> resetAll() async {
-    final res = await http.post(
-      Uri.parse("$baseUrl/adherence/reset/$patientId"),
-      headers: {"X-Role": widget.user.role},
-    );
+Future<void> resetAll() async {
+    for (var med in medications) {
+      final int medId = (med["medication_id"] ?? med["id"]) as int;
 
-    if (res.statusCode == 200) {
-      await refreshAll();
-    } else if (res.statusCode == 403) {
-      _snack("Access restricted for your role.");
-    } else {
-      _snack("Failed to reset");
+      await http.post(
+        Uri.parse("$baseUrl/adherence/reset"),
+        headers: {
+          "Content-Type": "application/json",
+          "X-Role": widget.user.role,
+        },
+        body: jsonEncode({"patient_id": patientId, "medication_id": medId}),
+      );
     }
+
+    await refreshAll();
   }
 
   void confirmReset() {
