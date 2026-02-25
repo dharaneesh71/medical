@@ -7,6 +7,7 @@ import 'models/user_model.dart';
 import 'login_page.dart';
 import 'add_patient_page.dart';
 import 'dashboards/doctor_dashboard.dart';
+import 'edit_patient_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -566,22 +567,51 @@ class _DashboardPageState extends State<DashboardPage> {
               child: Column(
                 children: [
                   if (widget.user.role != "patient")
-                    DropdownButton<int>(
-                      value: patientId,
-                      isExpanded: true,
-                      items: patients.map<DropdownMenuItem<int>>((p) {
-                        return DropdownMenuItem<int>(
-                          value: p["id"],
-                          child: Text(
-                            "${p["first_name"] ?? ""} ${p["last_name"] ?? ""}",
+                    Row(
+                      children: [
+                        Expanded(
+                          child: DropdownButton<int>(
+                            value: patientId,
+                            isExpanded: true,
+                            items: patients.map<DropdownMenuItem<int>>((p) {
+                              return DropdownMenuItem<int>(
+                                value: p["id"],
+                                child: Text(
+                                  "${p["first_name"] ?? ""} ${p["last_name"] ?? ""}",
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (value) async {
+                              if (value == null) return;
+                              setState(() => patientId = value);
+                              await refreshAll();
+                            },
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (value) async {
-                        if (value == null) return;
-                        setState(() => patientId = value);
-                        await refreshAll();
-                      },
+                        ),
+                        if (widget.user.role == "doctor" ||
+                            widget.user.role == "caregiver")
+                          IconButton(
+                            icon: const Icon(Icons.edit, color: Colors.blue),
+                            tooltip: "Edit Patient",
+                            onPressed: () async {
+                              final current = patients.firstWhere(
+                                (p) => p["id"] == patientId,
+                              );
+                              final updated = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => EditPatientPage(
+                                    user: widget.user,
+                                    patient: current,
+                                  ),
+                                ),
+                              );
+                              if (updated == true) {
+                                await refreshAll();
+                              }
+                            },
+                          ),
+                      ],
                     ),
                   const SizedBox(height: 20),
                   Text(

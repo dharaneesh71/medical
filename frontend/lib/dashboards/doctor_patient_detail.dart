@@ -643,7 +643,7 @@ final List<String> _weekDays = const [
 
   return Column(
     children: [
-      if (widget.role == "doctor")
+      if (widget.role == "doctor" || widget.role == "caregiver")
         Padding(
           padding: const EdgeInsets.all(16),
           child: Align(
@@ -674,13 +674,47 @@ final List<String> _weekDays = const [
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                med["name"],
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    med["name"],
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                if (widget.role == "doctor" ||
+                                    widget.role == "caregiver")
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Colors.blue,
+                                        ),
+                                        onPressed: () =>
+                                            showMedicationDialog(med: med),
+                                      ),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        ),
+                                        onPressed: () async {
+                                          await deleteMedication(medId);
+                                          await fetchMedications();
+                                          await fetchSummary();
+                                          await fetchTrend();
+                                          await fetchTodayStatus();
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                              ],
+                            ),
               Text("${med["dosage"]} • ${med["time"]}"),
               Text("Every ${med["interval_hours"]} hours"),
               const SizedBox(height: 8),
@@ -731,7 +765,8 @@ final List<String> _weekDays = const [
                       child: const Text("Missed"),
                     ),
                   ),
-                  if (widget.role == "doctor")
+                  if (widget.role == "doctor" ||
+                                    widget.role == "caregiver")
                     IconButton(
                       icon: const Icon(Icons.refresh),
                       onPressed: () {

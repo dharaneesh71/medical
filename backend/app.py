@@ -190,7 +190,7 @@ def add_patient():
 
 
 @app.delete("/patients/<int:patient_id>")
-@require_roles(["doctor"])
+@require_roles(["doctor", "caregiver"])
 def delete_patient(patient_id):
     conn = get_connection()
     conn.execute("DELETE FROM patients WHERE id=?", (patient_id,))
@@ -358,6 +358,7 @@ def log_adherence():
 
 # reset
 @app.post("/adherence/reset")
+@require_roles(["doctor", "caregiver"])
 def reset_today_status():
     data = request.get_json()
 
