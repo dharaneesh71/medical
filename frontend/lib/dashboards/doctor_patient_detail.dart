@@ -281,7 +281,60 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
       ),
     );
   }
+final List<String> _weekDays = const [
+    "Sat",
+    "Sun",
+    "Mon",
+    "Tue",
+    "Wed",
+    "Thu",
+    "Fri",
+  ];
 
+  Widget _buildWeekHeader() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: _weekDays
+          .map(
+            (d) => Text(
+              d,
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+          )
+          .toList(),
+    );
+  }
+
+  Widget _buildWeekDots(List trend) {
+    final safe = List<dynamic>.from(trend);
+
+    while (safe.length < 7) {
+      safe.insert(0, null);
+    }
+
+    final last7 = safe.length > 7 ? safe.sublist(safe.length - 7) : safe;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: last7.map<Widget>((status) {
+        Color color;
+
+        if (status == "taken") {
+          color = Colors.green;
+        } else if (status == "missed") {
+          color = Colors.red;
+        } else {
+          color = Colors.grey.shade300;
+        }
+
+        return Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        );
+      }).toList(),
+    );
+  }
   @override
   void dispose() {
     _tabController.dispose();
@@ -488,6 +541,7 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
                       : med["adherence_rate"] >= 60
                       ? "Moderate adherence – monitor closely"
                       : "Poor adherence – attention required",
+    
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: med["adherence_rate"] >= 85
@@ -498,18 +552,11 @@ class _DoctorPatientDetailPageState extends State<DoctorPatientDetailPage>
                   ),
                 ),
 
-                SizedBox(height: 8),
+                SizedBox(height: 12),
 
-                Wrap(
-                  spacing: 6,
-                  children: (med["trend"] as List).map<Widget>((status) {
-                    return Icon(
-                      Icons.circle,
-                      size: 10,
-                      color: status == "taken" ? Colors.green : Colors.red,
-                    );
-                  }).toList(),
-                ),
+                _buildWeekHeader(),
+                SizedBox(height: 6),
+                _buildWeekDots((med["trend"] as List?) ?? []),
               ],
             ),
             
