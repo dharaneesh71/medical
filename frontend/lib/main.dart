@@ -290,9 +290,9 @@ class _DashboardPageState extends State<DashboardPage> {
     if (res.statusCode == 200) {
       final data = jsonDecode(res.body);
       setState(() {
-        taken = data["taken"] ?? 0;
-        missed = data["missed"] ?? 0;
-        adherenceRate = (data["adherence_rate"] ?? 0).toDouble();
+        taken = data["overall_taken"] ?? 0;
+        missed = data["overall_missed"] ?? 0;
+        adherenceRate = (data["overall_rate"] ?? 0).toDouble();
         todayStatus = (data["today_status"] ?? {}).cast<String, dynamic>();
       });
     } else {

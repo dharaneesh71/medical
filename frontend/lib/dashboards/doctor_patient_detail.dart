@@ -346,13 +346,20 @@ final List<String> _weekDays = const [
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.patientName),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: "Medications"),
-            Tab(text: "Summary"),
-            Tab(text: "Trend"),
-            Tab(text: "Logs"),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context, true);
+          },
+        ),
+      
+      bottom: TabBar(   // 👈 این باید داخل AppBar باشه
+        controller: _tabController,
+        tabs: const [
+          Tab(text: "Medications"),
+          Tab(text: "Summary"),
+          Tab(text: "Trend"),
+          Tab(text: "Logs"),
           ],
         ),
       ),

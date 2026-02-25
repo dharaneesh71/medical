@@ -149,7 +149,7 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
 
                       return InkWell(
                         onTap: () async {
-                          await Navigator.push(
+                          final changed = await Navigator.push(
                             context,
                             MaterialPageRoute(
                               builder: (_) => DoctorPatientDetailPage(
@@ -160,7 +160,9 @@ class _DoctorDashboardPageState extends State<DoctorDashboardPage> {
                             ),
                           );
 
-                          await fetchRanking();
+                          if (changed == true) {
+                            await fetchRanking();
+                          }
                         },
                         child: Card(
                           margin: const EdgeInsets.symmetric(vertical: 8),

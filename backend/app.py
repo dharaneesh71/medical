@@ -596,7 +596,7 @@ def get_logs(patient_id):
 
 
 @app.get("/ai/risk-ranking")
-@require_roles(["doctor"])
+@require_roles(["doctor", "caregiver"])
 def risk_ranking():
 
     conn = get_connection()
